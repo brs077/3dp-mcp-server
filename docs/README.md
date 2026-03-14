@@ -1,6 +1,6 @@
 # 3DP MCP Server — Tool Reference
 
-Complete documentation for all 29 MCP tools provided by `3dp-mcp-server`. Each tool has its own detailed documentation page with parameters, examples, and tips.
+Complete documentation for all 33 MCP tools provided by `3dp-mcp-server`. Each tool has its own detailed documentation page with parameters, examples, and tips.
 
 ---
 
@@ -67,3 +67,12 @@ Complete documentation for all 29 MCP tools provided by `3dp-mcp-server`. Each t
 | Tool | Category | Description |
 |------|----------|-------------|
 | [search_models](tools/search_models.md) | Community | Search for publicly shared 3D models on Thingiverse |
+
+## Publishing
+
+| Tool | Category | Description |
+|------|----------|-------------|
+| [publish_github_release](tools/publish_github_release.md) | Publishing | Upload STL/STEP files to GitHub Releases |
+| [publish_thingiverse](tools/publish_thingiverse.md) | Publishing | Create a Thing and upload STL to Thingiverse |
+| [publish_myminifactory](tools/publish_myminifactory.md) | Publishing | Create object and upload STL to MyMiniFactory |
+| [publish_cults3d](tools/publish_cults3d.md) | Publishing | Create a listing on Cults3D via GraphQL API |

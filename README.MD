@@ -26,7 +26,7 @@ powershell -ExecutionPolicy Bypass -File setup.ps1
 
 That's it. Start a new Claude Code session and ask it to create a model.
 
-## Tools (29)
+## Tools (33)
 
 ### Core
 | Tool | Description |
@@ -84,6 +84,14 @@ That's it. Start a new Claude Code session and ask it to create a model.
 | Tool | Description |
 |------|-------------|
 | `search_models` | Search Thingiverse for 3D models |
+
+### Publishing
+| Tool | Description |
+|------|-------------|
+| `publish_github_release` | Upload STL/STEP to GitHub Releases (via `gh` CLI or API) |
+| `publish_thingiverse` | Create a Thing and upload STL to Thingiverse |
+| `publish_myminifactory` | Create object and upload STL to MyMiniFactory |
+| `publish_cults3d` | Create listing on Cults3D via GraphQL API |
 
 ## Requirements
 

@@ -47,6 +47,12 @@ MCP server for 3D-printable CAD modeling with build123d, targeting STL export fo
 ### Community
 - `search_models(query, source, max_results)` — Search Thingiverse for 3D models (requires THINGIVERSE_API_KEY env var).
 
+### Publishing
+- `publish_github_release(name, repo, tag, description, formats, draft)` — Upload STL/STEP to GitHub Releases. Uses `gh` CLI or GITHUB_TOKEN env var.
+- `publish_thingiverse(name, title, description, tags, category, is_wip)` — Create a Thing and upload STL. Requires THINGIVERSE_TOKEN env var.
+- `publish_myminifactory(name, title, description, tags, category_id)` — Create object and upload STL. Requires MYMINIFACTORY_TOKEN env var.
+- `publish_cults3d(name, title, description, tags, license, free, price_cents)` — Create listing via GraphQL API. Requires CULTS3D_API_KEY env var.
+
 ## build123d Coding Patterns
 
 All code runs with `from build123d import *` pre-imported. Assign the final shape to `result`.

@@ -1,6 +1,6 @@
 # 3dp-mcp-server Tool Reference
 
-Complete documentation for all 29 MCP tools provided by `3dp-mcp-server`.
+Complete documentation for all 33 MCP tools provided by `3dp-mcp-server`.
 
 ---
 
@@ -13,6 +13,7 @@ Complete documentation for all 29 MCP tools provided by `3dp-mcp-server`.
 - [Utility](#utility)
 - [Parametric Components](#parametric-components)
 - [Community](#community)
+- [Publishing](#publishing)
 
 ---
 
@@ -1307,3 +1308,170 @@ Search for publicly shared 3D models on Thingiverse.
 **Tips:**
 - Requires the `THINGIVERSE_API_KEY` environment variable to be set. Obtain an API key from the [Thingiverse developer portal](https://www.thingiverse.com/developers).
 - Use specific search terms for better results (e.g., "M3 knurled thumb nut" rather than "nut").
+
+---
+
+## Publishing
+
+### `publish_github_release`
+
+Upload model files to GitHub Releases as release assets.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | Yes | — | Model name (must exist in current session) |
+| `repo` | string | Yes | — | GitHub repo in `owner/repo` format |
+| `tag` | string | Yes | — | Release tag (e.g. `v1.0.0`) |
+| `description` | string | No | `""` | Release description/notes |
+| `formats` | string | No | `'["stl", "step"]'` | JSON list of formats to upload |
+| `draft` | bool | No | `false` | Create as draft release |
+
+**Authentication:** Uses `gh` CLI (preferred) or `GITHUB_TOKEN` environment variable.
+
+**Example:**
+```
+publish_github_release(
+    name="bracket",
+    repo="brs077/my-models",
+    tag="bracket-v1.0",
+    description="Wall-mount bracket, 3mm thick"
+)
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "method": "gh_cli",
+  "release_url": "https://github.com/brs077/my-models/releases/tag/bracket-v1.0",
+  "tag": "bracket-v1.0",
+  "repo": "brs077/my-models",
+  "files_uploaded": ["bracket.stl", "bracket.step"]
+}
+```
+
+---
+
+### `publish_thingiverse`
+
+Create a Thing on Thingiverse and upload the STL file.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | Yes | — | Model name (must exist in current session) |
+| `title` | string | Yes | — | Thing title on Thingiverse |
+| `description` | string | No | `""` | Thing description (supports markdown) |
+| `tags` | string | No | `'["3dprinting"]'` | JSON list of tags |
+| `category` | string | No | `"3D Printing"` | Thingiverse category name |
+| `is_wip` | bool | No | `true` | Publish as work-in-progress |
+
+**Authentication:** Requires `THINGIVERSE_TOKEN` environment variable (OAuth access token from https://www.thingiverse.com/developers).
+
+**Example:**
+```
+publish_thingiverse(
+    name="organizer",
+    title="Desk Organizer with Pen Holder",
+    tags='["organizer", "desk", "office"]'
+)
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "thing_id": 12345678,
+  "thing_url": "https://www.thingiverse.com/thing:12345678",
+  "title": "Desk Organizer with Pen Holder",
+  "file_uploaded": "organizer.stl",
+  "is_wip": true,
+  "note": "Published as WIP. Edit on Thingiverse to add images and finalize."
+}
+```
+
+---
+
+### `publish_myminifactory`
+
+Create an object on MyMiniFactory and upload the STL file.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | Yes | — | Model name (must exist in current session) |
+| `title` | string | Yes | — | Object title on MyMiniFactory |
+| `description` | string | No | `""` | Object description |
+| `tags` | string | No | `'["3dprinting"]'` | JSON list of tags |
+| `category_id` | int | No | `0` | MyMiniFactory category ID |
+
+**Authentication:** Requires `MYMINIFACTORY_TOKEN` environment variable (OAuth access token from https://www.myminifactory.com/api-documentation).
+
+**Example:**
+```
+publish_myminifactory(
+    name="gear_20t",
+    title="20-Tooth Spur Gear Module 1",
+    tags='["gear", "mechanical"]'
+)
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "object_id": 987654,
+  "object_url": "https://www.myminifactory.com/object/3d-print-987654",
+  "title": "20-Tooth Spur Gear Module 1",
+  "file_uploaded": "gear_20t.stl",
+  "status": "draft",
+  "note": "Published as draft. Visit MyMiniFactory to add images, set category, and publish."
+}
+```
+
+---
+
+### `publish_cults3d`
+
+Create a listing on Cults3D via their GraphQL API.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | Yes | — | Model name (must exist in current session) |
+| `title` | string | Yes | — | Creation title on Cults3D |
+| `description` | string | No | `""` | Creation description (HTML allowed) |
+| `tags` | string | No | `'["3dprinting"]'` | JSON list of tags |
+| `license` | string | No | `"creative_commons_attribution"` | License type |
+| `free` | bool | No | `true` | Publish as free model |
+| `price_cents` | int | No | `0` | Price in cents (if `free=false`) |
+
+**Authentication:** Requires `CULTS3D_API_KEY` environment variable (from https://cults3d.com/en/pages/api).
+
+**Note:** Cults3D does not support direct file upload via API. The listing is created as a draft — you must upload files through their web interface.
+
+**Example:**
+```
+publish_cults3d(
+    name="bracket",
+    title="Adjustable Wall Bracket",
+    tags='["bracket", "wall mount", "functional"]',
+    free=true
+)
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "creation_id": "abc123",
+  "creation_url": "https://cults3d.com/en/3d-model/...",
+  "slug": "adjustable-wall-bracket",
+  "title": "Adjustable Wall Bracket",
+  "status": "draft",
+  "stl_path": "/path/to/outputs/bracket.stl",
+  "note": "Created as draft. Upload the STL file manually at the creation URL."
+}
+```
+
+**Tips:**
+- All publishing tools default to draft/WIP status for safety — review on the platform before going live.
+- GitHub Releases is the most reliable option (no OAuth flow, works with `gh` CLI or a PAT).
+- Platforms without APIs (Printables, MakerWorld, Thangs) require manual upload — use `export_model` to get the files.
