@@ -35,7 +35,7 @@ source "$VENV_DIR/bin/activate"
 
 echo "Installing dependencies (this may take a few minutes for build123d)..."
 pip install --upgrade pip -q
-pip install "build123d>=0.7" "mcp[cli]>=1.0" -q
+pip install "build123d>=0.7" "mcp[cli]>=1.0" "bd_warehouse" "qrcode>=7.0" -q
 
 echo ""
 echo "[OK] Dependencies installed"

@@ -12,8 +12,9 @@ bash setup.sh
 
 That's it. Start a new Claude Code session and ask it to create a model.
 
-## Tools
+## Tools (29)
 
+### Core
 | Tool | Description |
 |------|-------------|
 | `create_model` | Execute build123d code, auto-exports STL + STEP |
@@ -22,14 +23,53 @@ That's it. Start a new Claude Code session and ask it to create a model.
 | `analyze_printability` | Watertight check, thin wall detection, build volume fit |
 | `list_models` | List all models in current session |
 | `get_model_code` | Retrieve the code used to create a model |
+
+### Transform & Combine
+| Tool | Description |
+|------|-------------|
 | `transform_model` | Scale, rotate, mirror, or translate a model |
-| `import_model` | Import STL or STEP file from disk |
-| `estimate_print` | Estimate filament usage, weight, and cost |
 | `combine_models` | Boolean union, subtract, or intersect two models |
+| `import_model` | Import STL or STEP file from disk |
+
+### Modification
+| Tool | Description |
+|------|-------------|
 | `shell_model` | Hollow out a model with optional open faces |
 | `split_model` | Split a model along a plane |
+| `add_text` | Emboss or deboss text onto a model face |
+| `create_threaded_hole` | Add threaded or heat-set insert holes (M2–M10) |
+
+### Analysis & Export
+| Tool | Description |
+|------|-------------|
+| `estimate_print` | Estimate filament usage, weight, and cost |
+| `analyze_overhangs` | Find overhang faces needing support material |
+| `suggest_orientation` | Suggest optimal print orientation |
 | `section_view` | Generate 2D cross-section as SVG |
-| `export_drawing` | Generate multi-view 2D technical drawing as SVG |
+| `export_drawing` | Multi-view 2D technical drawing as SVG |
+| `split_model_by_color` | Split into separate STLs for multi-color printing |
+
+### Utility
+| Tool | Description |
+|------|-------------|
+| `shrinkage_compensation` | Scale model to compensate for material shrinkage |
+| `pack_models` | Arrange models on build plate for batch printing |
+| `convert_format` | Convert between STL, STEP, 3MF, BREP |
+
+### Parametric Components
+| Tool | Description |
+|------|-------------|
+| `create_enclosure` | Electronics enclosure with snap/screw lid and features |
+| `create_gear` | Involute spur gear (via bd_warehouse) |
+| `create_snap_fit` | Cantilever snap-fit joints |
+| `create_hinge` | Two-part pin hinge assembly |
+| `create_dovetail` | Male or female dovetail joints |
+| `generate_label` | 3D-printable label with text and optional QR code |
+
+### Community
+| Tool | Description |
+|------|-------------|
+| `search_models` | Search Thingiverse for 3D models |
 
 ## Requirements
 

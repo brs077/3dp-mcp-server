@@ -13,52 +13,73 @@ MCP server for 3D-printable CAD modeling with build123d, targeting STL export fo
 - `get_model_code(name)` — Retrieve the code used to create a model
 
 ### Transform & Combine Tools
-- `transform_model(name, source_name, operations)` — Scale, rotate, mirror, or translate a model. Operations is a JSON string with keys like `{"scale": 1.5}`, `{"rotate": [0,0,45]}`, `{"mirror": "XY"}`, `{"translate": [10,0,5]}`.
+- `transform_model(name, source_name, operations)` — Scale, rotate, mirror, or translate a model.
 - `combine_models(name, model_a, model_b, operation)` — Boolean union, subtract, or intersect two models.
 - `import_model(name, file_path)` — Import an STL or STEP file from disk.
 
 ### Modification Tools
-- `shell_model(name, source_name, thickness, open_faces)` — Hollow out a model with optional open faces (e.g. `["top"]`).
-- `split_model(name, source_name, plane, keep)` — Split a model along XY/XZ/YZ plane. Keep "above", "below", or "both".
+- `shell_model(name, source_name, thickness, open_faces)` — Hollow out a model with optional open faces.
+- `split_model(name, source_name, plane, keep)` — Split a model along XY/XZ/YZ plane.
+- `add_text(name, source_name, text, face, font_size, depth, font, emboss)` — Emboss or deboss text onto a face.
+- `create_threaded_hole(name, source_name, position, thread_spec, depth, insert)` — Add threaded or heat-set insert holes (M2-M10).
 
 ### Analysis & Export Tools
-- `estimate_print(name, infill_percent, layer_height, material)` — Estimate filament usage, weight, and cost. Supports PLA, PETG, ABS, TPU, ASA.
-- `section_view(name, source_name, plane, offset)` — Generate a 2D cross-section exported as SVG.
-- `export_drawing(name, views, page_size)` — Generate multi-view 2D technical drawing as SVG.
+- `estimate_print(name, infill_percent, layer_height, material)` — Estimate filament usage, weight, and cost.
+- `analyze_overhangs(name, max_angle)` — Find overhang faces needing support material.
+- `suggest_orientation(name)` — Suggest optimal print orientation to minimize supports.
+- `section_view(name, source_name, plane, offset)` — 2D cross-section exported as SVG.
+- `export_drawing(name, views, page_size)` — Multi-view 2D technical drawing as SVG.
+- `split_model_by_color(name, source_name, assignments)` — Split into separate STLs for multi-color printing.
+
+### Utility Tools
+- `shrinkage_compensation(name, source_name, material)` — Scale model to compensate for material shrinkage.
+- `pack_models(name, model_names, padding)` — Arrange models on build plate for batch printing.
+- `convert_format(input_path, output_path)` — Convert between STL, STEP, 3MF, BREP formats.
+
+### Parametric Components
+- `create_enclosure(name, inner_width, inner_depth, inner_height, wall, lid_type, features)` — Electronics enclosure with lid. Features: vent_slots, screw_posts, cable_hole.
+- `create_gear(name, module, teeth, pressure_angle, thickness, bore)` — Involute spur gear via bd_warehouse.
+- `create_snap_fit(name, snap_type, params)` — Cantilever snap-fit joints.
+- `create_hinge(name, hinge_type, params)` — Two-part pin hinge assembly.
+- `create_dovetail(name, dovetail_type, width, height, depth, angle, clearance)` — Male or female dovetail joints.
+- `generate_label(name, text, size, font_size, qr_data)` — 3D-printable label with text and optional QR code.
+
+### Community
+- `search_models(query, source, max_results)` — Search Thingiverse for 3D models (requires THINGIVERSE_API_KEY env var).
 
 ## build123d Coding Patterns
 
 All code runs with `from build123d import *` pre-imported. Assign the final shape to `result`.
 
 ### Basic shapes
-​```python
+```python
 result = Box(width, depth, height)
 result = Cylinder(radius, height)
 result = Sphere(radius)
-​```
+```
 
 ### Boolean operations
-​```python
+```python
 result = Box(50, 40, 10) - Cylinder(5, 10)  # subtract
 result = Box(50, 40, 10) + Cylinder(5, 10)  # union
 result = Box(50, 40, 10) & Cylinder(5, 10)  # intersect
-​```
+```
 
 ### Positioning
-​```python
+```python
 hole = Pos(10, 0, 0) * Cylinder(3, 10)  # move before combining
 result = box - hole
-​```
+```
 
 ### Fillets and chamfers
-​```python
+```python
 result = fillet(result.edges(), radius=1)
 result = chamfer(result.edges(), length=0.5)
 result = fillet(result.edges().filter_by(Axis.Z), radius=2)
-​```
+```
 
 ### Extrude from sketch
-​```python
+```python
 with BuildPart() as part:
     with BuildSketch():
         Rectangle(60, 40)
@@ -66,10 +87,10 @@ with BuildPart() as part:
             Circle(3, mode=Mode.SUBTRACT)
     extrude(amount=5)
 result = part.part
-​```
+```
 
 ### Loft and sweep
-​```python
+```python
 with BuildPart() as part:
     with BuildSketch(Plane.XY):
         Circle(20)
@@ -77,7 +98,7 @@ with BuildPart() as part:
         Rectangle(30, 30)
     loft()
 result = part.part
-​```
+```
 
 ## Design Guidelines for FDM Printing (Bambu Lab X1C)
 
