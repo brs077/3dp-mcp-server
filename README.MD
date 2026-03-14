@@ -114,3 +114,9 @@ rm -rf 3dp-mcp-server
 claude mcp remove 3dp-mcp-server -s user
 Remove-Item -Recurse -Force 3dp-mcp-server
 ```
+
+## License
+
+This project is licensed under [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/). You can use it personally and share it with attribution, but commercial use and redistribution of modified versions are not permitted.
+
+Interested in collaborating or commercial licensing? [Open an issue](https://github.com/brs077/3dp-mcp-server/issues) to get in touch.
