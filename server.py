@@ -5,6 +5,8 @@ import json
 import math
 import os
 import traceback
+import uuid
+from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
@@ -13,6 +15,53 @@ mcp = FastMCP("3dp-mcp-server")
 _models: dict[str, dict] = {}
 
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "outputs")
+
+# Optional GCS upload configuration
+ARTIFACTS_BUCKET = os.environ.get("ARTIFACTS_BUCKET", "")
+ARTIFACTS_USER = os.environ.get("ARTIFACTS_USER", "anonymous")
+
+_gcs_client = None
+
+
+def _get_gcs_client():
+    """Lazy-init the GCS client (only when ARTIFACTS_BUCKET is set)."""
+    global _gcs_client
+    if _gcs_client is None:
+        from google.cloud import storage
+        _gcs_client = storage.Client()
+    return _gcs_client
+
+
+def _upload_to_gcs(local_path: str, filename: str) -> dict | None:
+    """Upload a file to GCS and return artifact metadata, or None if GCS not configured."""
+    if not ARTIFACTS_BUCKET:
+        return None
+
+    file_id = str(uuid.uuid4())
+    gcs_path = f"{ARTIFACTS_USER}/{file_id}/{filename}"
+
+    ext = Path(filename).suffix.lower()
+    content_type_map = {
+        ".stl": "application/sla",
+        ".step": "application/step",
+        ".stp": "application/step",
+        ".3mf": "application/vnd.ms-package.3dmanufacturing-3dmodel+xml",
+    }
+    content_type = content_type_map.get(ext, "application/octet-stream")
+
+    client = _get_gcs_client()
+    bucket = client.bucket(ARTIFACTS_BUCKET)
+    blob = bucket.blob(gcs_path)
+    blob.upload_from_filename(local_path, content_type=content_type)
+
+    size = os.path.getsize(local_path)
+
+    return {
+        "filename": filename,
+        "gcs_path": gcs_path,
+        "content_type": content_type,
+        "size": size,
+    }
 
 # ── Shared constants ──────────────────────────────────────────────────────────
 
@@ -148,13 +197,24 @@ def create_model(name: str, code: str) -> str:
         export_stl(result["shape"], stl_path)
         export_step(result["shape"], step_path)
 
-        return json.dumps({
+        # Upload to GCS if configured
+        artifacts = []
+        for path, fname in [(stl_path, f"{name}.stl"), (step_path, f"{name}.step")]:
+            a = _upload_to_gcs(path, fname)
+            if a:
+                artifacts.append(a)
+
+        response = {
             "success": True,
             "name": name,
             "bbox": result["bbox"],
             "volume": result["volume"],
             "outputs": {"stl": stl_path, "step": step_path},
-        }, indent=2)
+        }
+        if artifacts:
+            response["artifacts"] = artifacts
+
+        return json.dumps(response, indent=2)
 
     except Exception as e:
         return json.dumps({
