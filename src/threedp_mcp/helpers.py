@@ -106,7 +106,7 @@ def ensure_exported(name: str, models: dict, output_dir: str, fmt: str = "stl") 
         raise ValueError(f"Model '{name}' not found. Use list_models() to see available models.")
     path = os.path.join(output_dir, f"{name}.{fmt}")
     if not os.path.exists(path):
-        from build123d import export_stl, export_step
+        from build123d import export_step, export_stl
 
         shape = models[name]["shape"]
         if fmt == "stl":
