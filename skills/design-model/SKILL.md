@@ -5,16 +5,40 @@ description: Design a 3D-printable CAD model using build123d. Use when the user 
 
 # 3D Model Design
 
-Help the user design a 3D-printable model using the `create_model` MCP tool.
+Help the user design a 3D-printable model using the MCP tools.
 
 ## Workflow
 
 1. Clarify the user's design intent — dimensions, shape, purpose, material
-2. Write build123d Python code that assigns the final shape to `result`
-3. Call `create_model` with a descriptive name and the code
-4. Call `measure_model` to verify dimensions
-5. Call `analyze_printability` to check for printing issues
-6. If issues are found, iterate on the design
+2. Check if a **parametric component** fits before writing raw code (see below)
+3. Write build123d Python code that assigns the final shape to `result`
+4. Call `create_model` with a descriptive name and the code
+5. Apply **modifications** as needed (shell, text, threaded holes)
+6. Call `measure_model` to verify dimensions
+7. Call `analyze_printability` to check for printing issues
+8. If issues are found, iterate on the design
+
+## Parametric Components
+
+Before writing raw build123d code, check if one of these purpose-built tools fits:
+
+- `create_enclosure` — Electronics enclosure with snap/screw lid, vent slots, cable holes, screw posts
+- `create_gear` — Involute spur gear with configurable module, teeth, bore
+- `create_snap_fit` — Cantilever snap-fit joints
+- `create_hinge` — Two-part pin hinge assembly
+- `create_dovetail` — Male or female dovetail joints with clearance
+- `generate_label` — 3D-printable label with embossed text and optional QR code
+
+## Post-Creation Modifications
+
+After creating a base model, refine it with:
+
+- `shell_model` — Hollow out a solid part with optional open faces
+- `add_text` — Emboss or deboss text onto a face
+- `create_threaded_hole` — Add M2–M10 threaded or heat-set insert holes
+- `transform_model` — Scale, rotate, mirror, or translate
+- `combine_models` — Boolean union, subtract, or intersect two models
+- `import_model` — Bring in existing STL/STEP files from disk
 
 ## build123d Guidelines
 

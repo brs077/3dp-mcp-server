@@ -15,11 +15,12 @@ The plugin will automatically set up a Python virtual environment and install de
 
 ### Plugin Skills
 
-Once installed, Claude gains three agent skills:
+Once installed, Claude gains four agent skills:
 
-- **design-model** — Design 3D-printable CAD models with build123d
-- **print-prep** — Analyze printability, suggest orientation, estimate filament/cost
+- **design-model** — Design 3D-printable CAD models with build123d, parametric components, and modifications
+- **print-prep** — Analyze printability, suggest orientation, estimate filament/cost, Bambu Studio tips
 - **publish-model** — Publish models to GitHub Releases, Thingiverse, MyMiniFactory, or Cults3D
+- **search-remix** — Search Thingiverse for community models, import and remix
 
 ## Manual Setup (Alternative)
 

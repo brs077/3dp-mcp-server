@@ -16,10 +16,28 @@ Help the user prepare a model for 3D printing using the analysis and export tool
 5. If the model needs fixes (thin walls, overhangs), suggest design modifications
 6. Call `export_model` to export the final STL/STEP/3MF file
 
-## Tips
+## Visualization & Inspection
+
+- Call `section_view` to inspect internal geometry (wall thickness, hollows, infill cavities)
+- Call `export_drawing` to generate a multi-view technical drawing with dimensions (SVG)
+
+## Batch & Format Tools
+
+- Call `pack_models` to arrange multiple parts on one build plate with padding
+- Call `convert_format` to convert between STL, STEP, 3MF, and BREP formats
+- Call `split_model` to split oversized models that exceed the build volume
+
+## Material-Specific
 
 - PLA is the default material if the user doesn't specify one
 - Layer height 0.2mm and 15% infill are good defaults
-- Suggest splitting large models with `split_model` if they exceed build volume
 - Use `shrinkage_compensation` for materials with high shrinkage (ABS, Nylon)
 - Use `split_model_by_color` for multi-color prints on Bambu Lab AMS
+
+## Bambu Studio Slicer Tips
+
+- **Infill settings**: Left panel → **Strength** section (switch to Advanced mode to see pattern options)
+- **Recommended infill**: 15% Gyroid — self-supporting, strong in all directions, minimal filament
+- **Supports**: Tree(auto) for complex overhangs, Normal for flat horizontal surfaces
+- **Support painting**: Use the brush tool to manually enforce or block supports on specific faces
+- **Solid models with slicer infill** are generally better than manually hollowed models — the slicer's gyroid/lightning patterns are self-supporting and don't create internal overhangs
