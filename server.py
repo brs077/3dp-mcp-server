@@ -16,49 +16,103 @@ _models: dict[str, dict] = {}
 
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "outputs")
 
-# Optional GCS upload configuration
+# Optional cloud storage upload configuration
+# Supported providers: "gcs" (Google Cloud Storage), "s3" (Amazon S3 / compatible)
+# Auto-detected from ARTIFACTS_PROVIDER, or inferred if only one SDK is available.
 ARTIFACTS_BUCKET = os.environ.get("ARTIFACTS_BUCKET", "")
 ARTIFACTS_USER = os.environ.get("ARTIFACTS_USER", "anonymous")
+ARTIFACTS_PROVIDER = os.environ.get("ARTIFACTS_PROVIDER", "").lower()  # "gcs" or "s3"
+ARTIFACTS_S3_REGION = os.environ.get("ARTIFACTS_S3_REGION", "")
+ARTIFACTS_S3_ENDPOINT = os.environ.get("ARTIFACTS_S3_ENDPOINT", "")  # For S3-compatible stores
 
-_gcs_client = None
+_storage_client = None
+
+_CONTENT_TYPE_MAP = {
+    ".stl": "application/sla",
+    ".step": "application/step",
+    ".stp": "application/step",
+    ".3mf": "application/vnd.ms-package.3dmanufacturing-3dmodel+xml",
+}
 
 
-def _get_gcs_client():
-    """Lazy-init the GCS client (only when ARTIFACTS_BUCKET is set)."""
-    global _gcs_client
-    if _gcs_client is None:
+def _detect_provider() -> str:
+    """Detect storage provider from env or available SDKs."""
+    if ARTIFACTS_PROVIDER in ("gcs", "s3"):
+        return ARTIFACTS_PROVIDER
+    # Auto-detect: try GCS first (original default), then S3
+    try:
+        import google.cloud.storage  # noqa: F401
+        return "gcs"
+    except ImportError:
+        pass
+    try:
+        import boto3  # noqa: F401
+        return "s3"
+    except ImportError:
+        pass
+    return ""
+
+
+def _get_storage_client():
+    """Lazy-init the cloud storage client for the configured provider."""
+    global _storage_client
+    if _storage_client is not None:
+        return _storage_client
+
+    provider = _detect_provider()
+    if provider == "gcs":
         from google.cloud import storage
-        _gcs_client = storage.Client()
-    return _gcs_client
+        _storage_client = ("gcs", storage.Client())
+    elif provider == "s3":
+        import boto3
+        kwargs = {}
+        if ARTIFACTS_S3_REGION:
+            kwargs["region_name"] = ARTIFACTS_S3_REGION
+        if ARTIFACTS_S3_ENDPOINT:
+            kwargs["endpoint_url"] = ARTIFACTS_S3_ENDPOINT
+        _storage_client = ("s3", boto3.client("s3", **kwargs))
+    else:
+        raise RuntimeError(
+            "ARTIFACTS_BUCKET is set but no storage SDK found. "
+            "Install google-cloud-storage or boto3."
+        )
+    return _storage_client
 
 
-def _upload_to_gcs(local_path: str, filename: str) -> dict | None:
-    """Upload a file to GCS and return artifact metadata, or None if GCS not configured."""
+def _upload_artifact(local_path: str, filename: str) -> dict | None:
+    """Upload a file to cloud storage and return artifact metadata.
+
+    Returns None if ARTIFACTS_BUCKET is not configured.
+    Supports GCS (google-cloud-storage) and S3 (boto3).
+    """
     if not ARTIFACTS_BUCKET:
         return None
 
     file_id = str(uuid.uuid4())
-    gcs_path = f"{ARTIFACTS_USER}/{file_id}/{filename}"
+    object_key = f"{ARTIFACTS_USER}/{file_id}/{filename}"
 
     ext = Path(filename).suffix.lower()
-    content_type_map = {
-        ".stl": "application/sla",
-        ".step": "application/step",
-        ".stp": "application/step",
-        ".3mf": "application/vnd.ms-package.3dmanufacturing-3dmodel+xml",
-    }
-    content_type = content_type_map.get(ext, "application/octet-stream")
+    content_type = _CONTENT_TYPE_MAP.get(ext, "application/octet-stream")
 
-    client = _get_gcs_client()
-    bucket = client.bucket(ARTIFACTS_BUCKET)
-    blob = bucket.blob(gcs_path)
-    blob.upload_from_filename(local_path, content_type=content_type)
+    provider, client = _get_storage_client()
+
+    if provider == "gcs":
+        bucket = client.bucket(ARTIFACTS_BUCKET)
+        blob = bucket.blob(object_key)
+        blob.upload_from_filename(local_path, content_type=content_type)
+    elif provider == "s3":
+        client.upload_file(
+            local_path, ARTIFACTS_BUCKET, object_key,
+            ExtraArgs={"ContentType": content_type},
+        )
 
     size = os.path.getsize(local_path)
 
     return {
         "filename": filename,
-        "gcs_path": gcs_path,
+        "provider": provider,
+        "bucket": ARTIFACTS_BUCKET,
+        "object_key": object_key,
         "content_type": content_type,
         "size": size,
     }
@@ -197,10 +251,10 @@ def create_model(name: str, code: str) -> str:
         export_stl(result["shape"], stl_path)
         export_step(result["shape"], step_path)
 
-        # Upload to GCS if configured
+        # Upload to cloud storage if configured
         artifacts = []
         for path, fname in [(stl_path, f"{name}.stl"), (step_path, f"{name}.step")]:
-            a = _upload_to_gcs(path, fname)
+            a = _upload_artifact(path, fname)
             if a:
                 artifacts.append(a)
 

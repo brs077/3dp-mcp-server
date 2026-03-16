@@ -2,4 +2,6 @@ build123d>=0.7
 mcp[cli]>=1.0
 bd_warehouse
 qrcode>=7.0
-google-cloud-storage>=2.14.0
+# Cloud storage — install one or both depending on your provider:
+# google-cloud-storage>=2.14.0   # for GCS (ARTIFACTS_PROVIDER=gcs)
+# boto3>=1.28.0                  # for S3  (ARTIFACTS_PROVIDER=s3)

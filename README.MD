@@ -112,6 +112,27 @@ That's it. Start a new Claude Code session and ask it to create a model.
 | `publish_myminifactory` | Create object and upload STL to MyMiniFactory |
 | `publish_cults3d` | Create listing on Cults3D via GraphQL API |
 
+## Cloud Storage (Optional)
+
+Created models can be automatically uploaded to cloud storage. Both **Google Cloud Storage (GCS)** and **Amazon S3** (including S3-compatible stores like MinIO/R2) are supported.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `ARTIFACTS_BUCKET` | Bucket name for artifact uploads | _(empty — disabled)_ |
+| `ARTIFACTS_PROVIDER` | `gcs` or `s3` (auto-detected from installed SDK if omitted) | _(auto)_ |
+| `ARTIFACTS_USER` | User prefix for organizing uploads | `anonymous` |
+| `ARTIFACTS_S3_REGION` | AWS region (S3 only) | _(SDK default)_ |
+| `ARTIFACTS_S3_ENDPOINT` | Custom endpoint URL for S3-compatible stores | _(empty)_ |
+
+Install the SDK for your provider:
+
+```bash
+pip install google-cloud-storage   # GCS
+pip install boto3                  # S3
+```
+
+When configured, `create_model` uploads STL and STEP files and includes artifact metadata in the response.
+
 ## Requirements
 
 - Python 3.11+
