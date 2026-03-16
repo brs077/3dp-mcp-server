@@ -560,6 +560,59 @@ Add a threaded hole (tap drill or heat-set insert) to a model at a specified pos
 
 ---
 
+### `create_thread`
+
+Create an ISO metric thread with real helical geometry. Generates external threads (for bolts/screws) or internal threads (for nuts) using bd_warehouse's IsoThread.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `name` | string | *required* | Name for the thread model |
+| `thread_spec` | string | `"M3"` | ISO metric size: `M2`, `M2.5`, `M3`, `M4`, `M5`, `M6`, `M8`, `M10` |
+| `length` | float | `10.0` | Thread length in mm |
+| `external` | bool | `true` | `true` for bolt/screw thread, `false` for nut thread |
+| `hand` | string | `"right"` | Thread direction: `"right"` or `"left"` |
+| `end_finishes` | string | `'["fade","square"]'` | JSON list of [start, end] finish: `"raw"`, `"fade"`, `"square"`, `"chamfer"` |
+| `simple` | bool | `false` | Simplified geometry (faster, less detail) |
+
+**Example usage:**
+
+```json
+{
+  "name": "create_thread",
+  "arguments": {
+    "name": "m3_shaft",
+    "thread_spec": "M3",
+    "length": 20,
+    "external": true
+  }
+}
+```
+
+**Example response:**
+
+```json
+{
+  "name": "m3_shaft",
+  "thread_spec": "M3",
+  "type": "external",
+  "major_diameter": 3.0,
+  "pitch": 0.5,
+  "length": 20.0,
+  "hand": "right",
+  "bbox": { "x": 3.0, "y": 3.0, "z": 20.0 },
+  "volume": 120.5
+}
+```
+
+**Tips:**
+- Use `external=true` for bolts and screws, `external=false` for nut threads.
+- Set `simple=true` for faster generation when thread detail isn't critical.
+- The `"fade"` end finish tapers the thread over 90° of arc — good for bolt entry ends.
+- Combine with `create_model` and `combine_models` to build complete bolts (thread + head).
+- For 3D printing, threads M3 and larger print reliably at 0.2mm layer height.
+
+---
+
 ## Analysis & Export
 
 ### `estimate_print`

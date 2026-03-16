@@ -55,6 +55,7 @@ Complete documentation for all 33 MCP tools provided by `3dp-mcp-server`. Each t
 
 | Tool | Category | Description |
 |------|----------|-------------|
+| [create_thread](tools/create_thread.md) | Parametric Components | Create an ISO metric thread (external or internal) |
 | [create_enclosure](tools/create_enclosure.md) | Parametric Components | Generate a parametric two-part enclosure (body + lid) |
 | [create_gear](tools/create_gear.md) | Parametric Components | Generate a spur gear using bd_warehouse |
 | [create_snap_fit](tools/create_snap_fit.md) | Parametric Components | Generate a cantilever snap-fit clip |

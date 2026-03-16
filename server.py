@@ -75,14 +75,14 @@ _MATERIAL_PROPERTIES = {
 }
 
 _ISO_THREAD_TABLE = {
-    "M2":   {"tap_drill": 1.6,  "insert_drill": 3.2,  "clearance_drill": 2.4},
-    "M2.5": {"tap_drill": 2.05, "insert_drill": 3.5,  "clearance_drill": 2.9},
-    "M3":   {"tap_drill": 2.5,  "insert_drill": 4.0,  "clearance_drill": 3.4},
-    "M4":   {"tap_drill": 3.3,  "insert_drill": 5.0,  "clearance_drill": 4.5},
-    "M5":   {"tap_drill": 4.2,  "insert_drill": 6.0,  "clearance_drill": 5.5},
-    "M6":   {"tap_drill": 5.0,  "insert_drill": 7.0,  "clearance_drill": 6.6},
-    "M8":   {"tap_drill": 6.8,  "insert_drill": 9.5,  "clearance_drill": 8.4},
-    "M10":  {"tap_drill": 8.5,  "insert_drill": 12.0, "clearance_drill": 10.5},
+    "M2":   {"pitch": 0.4,  "major_diameter": 2.0,  "tap_drill": 1.6,  "insert_drill": 3.2,  "clearance_drill": 2.4},
+    "M2.5": {"pitch": 0.45, "major_diameter": 2.5,  "tap_drill": 2.05, "insert_drill": 3.5,  "clearance_drill": 2.9},
+    "M3":   {"pitch": 0.5,  "major_diameter": 3.0,  "tap_drill": 2.5,  "insert_drill": 4.0,  "clearance_drill": 3.4},
+    "M4":   {"pitch": 0.7,  "major_diameter": 4.0,  "tap_drill": 3.3,  "insert_drill": 5.0,  "clearance_drill": 4.5},
+    "M5":   {"pitch": 0.8,  "major_diameter": 5.0,  "tap_drill": 4.2,  "insert_drill": 6.0,  "clearance_drill": 5.5},
+    "M6":   {"pitch": 1.0,  "major_diameter": 6.0,  "tap_drill": 5.0,  "insert_drill": 7.0,  "clearance_drill": 6.6},
+    "M8":   {"pitch": 1.25, "major_diameter": 8.0,  "tap_drill": 6.8,  "insert_drill": 9.5,  "clearance_drill": 8.4},
+    "M10":  {"pitch": 1.5,  "major_diameter": 10.0, "tap_drill": 8.5,  "insert_drill": 12.0, "clearance_drill": 10.5},
 }
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -1191,6 +1191,92 @@ def create_threaded_hole(name: str, source_name: str, position: str, thread_spec
             "volume": entry["volume"],
         }, indent=2)
 
+    except Exception as e:
+        return json.dumps({"success": False, "error": str(e), "traceback": traceback.format_exc()}, indent=2)
+
+
+@mcp.tool()
+def create_thread(name: str, thread_spec: str = "M3", length: float = 10.0,
+                  external: bool = True, hand: str = "right",
+                  end_finishes: str = '["fade", "square"]',
+                  simple: bool = False) -> str:
+    """Create an ISO metric thread using bd_warehouse.
+
+    Generates real helical thread geometry — external threads for bolts/screws,
+    internal threads for nuts. Combine with other shapes using combine_models
+    to create complete fasteners (e.g. thread + head = bolt).
+
+    Args:
+        name: Name for the thread model
+        thread_spec: ISO metric thread size - M2, M2.5, M3, M4, M5, M6, M8, M10 (default M3)
+        length: Thread length in mm (default 10)
+        external: True for bolt/screw thread, False for nut thread (default True)
+        hand: Thread direction - "right" or "left" (default "right")
+        end_finishes: JSON list of [start, end] finish: "raw", "fade", "square", "chamfer" (default '["fade", "square"]')
+        simple: If true, use simplified geometry for faster generation (default False)
+    """
+    spec = thread_spec.upper()
+    if spec not in _ISO_THREAD_TABLE:
+        return json.dumps({"success": False, "error": f"Unknown thread spec: {thread_spec}. Supported: {list(_ISO_THREAD_TABLE.keys())}"})
+
+    if hand not in ("right", "left"):
+        return json.dumps({"success": False, "error": f"Invalid hand: {hand}. Must be 'right' or 'left'."})
+
+    try:
+        from bd_warehouse.thread import IsoThread
+
+        thread_data = _ISO_THREAD_TABLE[spec]
+        finishes = tuple(json.loads(end_finishes)) if isinstance(end_finishes, str) else tuple(end_finishes)
+
+        result = IsoThread(
+            major_diameter=thread_data["major_diameter"],
+            pitch=thread_data["pitch"],
+            length=length,
+            external=external,
+            hand=hand,
+            end_finishes=finishes,
+            simple=simple,
+        )
+
+        entry = _shape_to_model_entry(result, code=f"{spec} {'external' if external else 'internal'} thread, {length}mm, {hand}-hand")
+        _models[name] = entry
+
+        # Auto-export STL and STEP
+        model_dir = os.path.join(OUTPUT_DIR, name)
+        os.makedirs(model_dir, exist_ok=True)
+        from build123d import export_stl, export_step
+        stl_path = os.path.join(model_dir, f"{name}.stl")
+        step_path = os.path.join(model_dir, f"{name}.step")
+        export_stl(result, stl_path)
+        export_step(result, step_path)
+
+        artifacts = []
+        for path, fname in [(stl_path, f"{name}.stl"), (step_path, f"{name}.step")]:
+            a = _upload_to_gcs(path, fname)
+            if a:
+                artifacts.append(a)
+
+        response = {
+            "success": True,
+            "name": name,
+            "thread_spec": spec,
+            "type": "external" if external else "internal",
+            "major_diameter": thread_data["major_diameter"],
+            "pitch": thread_data["pitch"],
+            "length": length,
+            "hand": hand,
+            "simple": simple,
+            "bbox": entry["bbox"],
+            "volume": entry["volume"],
+            "outputs": {"stl": stl_path, "step": step_path},
+        }
+        if artifacts:
+            response["artifacts"] = artifacts
+
+        return json.dumps(response, indent=2)
+
+    except ImportError:
+        return json.dumps({"success": False, "error": "bd_warehouse is not installed. Install with: pip install bd_warehouse"})
     except Exception as e:
         return json.dumps({"success": False, "error": str(e), "traceback": traceback.format_exc()}, indent=2)
 

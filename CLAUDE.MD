@@ -38,6 +38,7 @@ MCP server for 3D-printable CAD modeling with build123d, targeting STL export fo
 
 ### Parametric Components
 - `create_enclosure(name, inner_width, inner_depth, inner_height, wall, lid_type, features)` — Electronics enclosure with lid. Features: vent_slots, screw_posts, cable_hole.
+- `create_thread(name, thread_spec, length, external, hand, end_finishes, simple)` — ISO metric thread (external for bolts, internal for nuts) via bd_warehouse.
 - `create_gear(name, module, teeth, pressure_angle, thickness, bore)` — Involute spur gear via bd_warehouse.
 - `create_snap_fit(name, snap_type, params)` — Cantilever snap-fit joints.
 - `create_hinge(name, hinge_type, params)` — Two-part pin hinge assembly.
@@ -105,6 +106,15 @@ with BuildPart() as part:
     loft()
 result = part.part
 ```
+
+### Creating threaded parts
+- Use `create_thread(name, thread_spec, length)` for standalone threaded rods or bolt shafts
+- Use `create_threaded_hole(name, source, position, thread_spec)` to add threaded holes to existing parts
+- Combine thread + head geometry using `combine_models` for complete bolts:
+  1. `create_thread` for the shaft
+  2. `create_model` for the head (e.g. `Cylinder` for hex head)
+  3. `transform_model` to position the head
+  4. `combine_models` to union them
 
 ## Design Guidelines for FDM Printing (Bambu Lab X1C)
 
