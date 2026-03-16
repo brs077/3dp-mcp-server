@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "3dp-mcp-server": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/run-server.sh",
+      "args": [],
+      "env": {}
+    }
+  }
+}

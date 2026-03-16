@@ -2,12 +2,31 @@
 
 MCP server that gives Claude the ability to create 3D-printable CAD models using build123d. Outputs STL/STEP files ready for slicing in Bambu Studio.
 
-## Quick Setup
+## Install as Plugin (Recommended)
+
+Add the marketplace and install the plugin from within Claude Code:
+
+```
+/plugin marketplace add brs077/3dp-mcp-server
+/plugin install 3dp-mcp-server@3dp-tools
+```
+
+The plugin will automatically set up a Python virtual environment and install dependencies on first use. Requires Python 3.11+.
+
+### Plugin Skills
+
+Once installed, Claude gains three agent skills:
+
+- **design-model** — Design 3D-printable CAD models with build123d
+- **print-prep** — Analyze printability, suggest orientation, estimate filament/cost
+- **publish-model** — Publish models to GitHub Releases, Thingiverse, MyMiniFactory, or Cults3D
+
+## Manual Setup (Alternative)
 
 ### macOS
 
 ```bash
-git clone https://github.com/yourusername/3dp-mcp-server.git
+git clone https://github.com/brs077/3dp-mcp-server.git
 cd 3dp-mcp-server
 bash setup.sh
 ```
@@ -19,7 +38,7 @@ bash setup.sh
 **Option B** — Run from PowerShell:
 
 ```powershell
-git clone https://github.com/yourusername/3dp-mcp-server.git
+git clone https://github.com/brs077/3dp-mcp-server.git
 cd 3dp-mcp-server
 powershell -ExecutionPolicy Bypass -File setup.ps1
 ```
@@ -101,15 +120,21 @@ That's it. Start a new Claude Code session and ask it to create a model.
 
 ## Uninstall
 
-### macOS
+### Plugin
 
+```
+/plugin uninstall 3dp-mcp-server@3dp-tools
+```
+
+### Manual Install
+
+macOS:
 ```bash
 claude mcp remove 3dp-mcp-server -s user
 rm -rf 3dp-mcp-server
 ```
 
-### Windows
-
+Windows:
 ```powershell
 claude mcp remove 3dp-mcp-server -s user
 Remove-Item -Recurse -Force 3dp-mcp-server
