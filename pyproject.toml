@@ -1,0 +1,44 @@
+[project]
+name = "threedp-mcp"
+version = "1.0.0"
+description = "MCP server for 3D-printable CAD modeling with build123d"
+readme = "README.md"
+license = {text = "CC-BY-NC-ND-4.0"}
+requires-python = ">=3.11"
+dependencies = [
+    "build123d>=0.7",
+    "mcp[cli]>=1.0",
+    "bd_warehouse>=0.1",
+    "qrcode>=7.0",
+]
+
+[project.scripts]
+threedp-mcp = "threedp_mcp.server:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/threedp_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: tests requiring build123d and OCP installed",
+]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]

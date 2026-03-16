@@ -13,3 +13,10 @@ outputs/
 # IDE
 .vscode/
 .idea/
+
+# Environment
+.env
+
+# Build artifacts
+dist/
+*.egg-info

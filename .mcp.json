@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "3dp-mcp-server": {
+      "command": "uv",
+      "args": ["run", "--directory", "${CLAUDE_PLUGIN_ROOT}", "threedp-mcp"]
+    }
+  }
+}
