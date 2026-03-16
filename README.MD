@@ -4,7 +4,26 @@ MCP server that gives Claude the ability to create 3D-printable CAD models using
 
 Also available as a **Claude Code plugin** — install it and all 33 tools are automatically available.
 
-## Quick Setup
+## Install as Plugin (Recommended)
+
+Add the marketplace and install the plugin from within Claude Code:
+
+```
+/plugin marketplace add brs077/3dp-mcp-server
+/plugin install 3dp-mcp-server@3dp-tools
+```
+
+The plugin will automatically set up a Python virtual environment and install dependencies on first use. Requires Python 3.11+.
+
+### Plugin Skills
+
+Once installed, Claude gains three agent skills:
+
+- **design-model** — Design 3D-printable CAD models with build123d
+- **print-prep** — Analyze printability, suggest orientation, estimate filament/cost
+- **publish-model** — Publish models to GitHub Releases, Thingiverse, MyMiniFactory, or Cults3D
+
+## Manual Setup (Alternative)
 
 ```bash
 git clone https://github.com/randypitcherii/3dp-mcp-server.git
@@ -133,9 +152,24 @@ src/threedp_mcp/
 
 ## Uninstall
 
+### Plugin
+
+```
+/plugin uninstall 3dp-mcp-server@3dp-tools
+```
+
+### Manual Install
+
+macOS:
 ```bash
 claude mcp remove 3dp-mcp-server -s user
 rm -rf 3dp-mcp-server
+```
+
+Windows:
+```powershell
+claude mcp remove 3dp-mcp-server -s user
+Remove-Item -Recurse -Force 3dp-mcp-server
 ```
 
 ## License

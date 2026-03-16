@@ -1,0 +1,28 @@
+{
+  "name": "3dp-tools",
+  "owner": {
+    "name": "brs077",
+    "email": ""
+  },
+  "metadata": {
+    "description": "3D printing CAD modeling tools for Claude Code — design, analyze, and export printable models",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "3dp-mcp-server",
+      "source": "./",
+      "description": "3D printing CAD modeling with build123d — 33 MCP tools for creating, analyzing, and exporting printable models (STL/STEP/3MF)",
+      "version": "1.0.0",
+      "author": {
+        "name": "brs077"
+      },
+      "homepage": "https://github.com/brs077/3dp-mcp-server",
+      "repository": "https://github.com/brs077/3dp-mcp-server",
+      "license": "CC-BY-NC-ND-4.0",
+      "keywords": ["3d-printing", "cad", "build123d", "stl", "step", "modeling"],
+      "category": "development-tools",
+      "tags": ["3d-printing", "cad", "manufacturing", "prototyping"]
+    }
+  ]
+}
