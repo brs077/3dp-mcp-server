@@ -2,29 +2,29 @@
 
 MCP server that gives Claude the ability to create 3D-printable CAD models using build123d. Outputs STL/STEP files ready for slicing in Bambu Studio.
 
+Also available as a **Claude Code plugin** — install it and all 33 tools are automatically available.
+
 ## Quick Setup
 
-### macOS
+```bash
+git clone https://github.com/randypitcherii/3dp-mcp-server.git
+cd 3dp-mcp-server
+make install
+```
+
+### As a Claude Code Plugin
 
 ```bash
-git clone https://github.com/yourusername/3dp-mcp-server.git
-cd 3dp-mcp-server
-bash setup.sh
+claude plugin add /path/to/3dp-mcp-server
 ```
 
-### Windows 11
+The plugin auto-registers the MCP server via `.mcp.json`.
 
-**Option A** — Double-click `setup.bat` in File Explorer.
+### Manual MCP Registration
 
-**Option B** — Run from PowerShell:
-
-```powershell
-git clone https://github.com/yourusername/3dp-mcp-server.git
-cd 3dp-mcp-server
-powershell -ExecutionPolicy Bypass -File setup.ps1
+```bash
+claude mcp add 3dp-mcp-server -- uv run --directory /path/to/3dp-mcp-server threedp-mcp
 ```
-
-That's it. Start a new Claude Code session and ask it to create a model.
 
 ## Tools (33)
 
@@ -51,7 +51,7 @@ That's it. Start a new Claude Code session and ask it to create a model.
 | `shell_model` | Hollow out a model with optional open faces |
 | `split_model` | Split a model along a plane |
 | `add_text` | Emboss or deboss text onto a model face |
-| `create_threaded_hole` | Add threaded or heat-set insert holes (M2–M10) |
+| `create_threaded_hole` | Add threaded or heat-set insert holes (M2-M10) |
 
 ### Analysis & Export
 | Tool | Description |
@@ -93,26 +93,49 @@ That's it. Start a new Claude Code session and ask it to create a model.
 | `publish_myminifactory` | Create object and upload STL to MyMiniFactory |
 | `publish_cults3d` | Create listing on Cults3D via GraphQL API |
 
+## Development
+
+```bash
+make install          # Install dependencies
+make test             # Run unit tests
+make test-integration # Run all tests (requires build123d)
+make lint             # Check code style
+make format           # Auto-format code
+make verify           # Lint + test
+make run              # Start the MCP server
+make clean            # Remove build artifacts
+```
+
 ## Requirements
 
 - Python 3.11+
+- [uv](https://docs.astral.sh/uv/) package manager
 - macOS (tested on Apple Silicon) or Windows 11
 - Claude Code CLI
 
-## Uninstall
+## Project Structure
 
-### macOS
+```
+src/threedp_mcp/
+├── server.py       # Thin entrypoint — FastMCP init + tool registration
+├── constants.py    # Material properties, ISO thread table
+├── helpers.py      # Shared utilities (shape conversion, code execution, etc.)
+└── tools/
+    ├── core.py         # create, export, measure, analyze, list, get_code
+    ├── transform.py    # transform, combine, import
+    ├── modification.py # shell, split, add_text, threaded_hole
+    ├── analysis.py     # estimate, overhangs, orientation, section, drawing, color_split
+    ├── utility.py      # shrinkage, pack, convert
+    ├── components.py   # enclosure, gear, snap_fit, hinge, dovetail, label
+    ├── community.py    # search_models
+    └── publishing.py   # github, thingiverse, myminifactory, cults3d
+```
+
+## Uninstall
 
 ```bash
 claude mcp remove 3dp-mcp-server -s user
 rm -rf 3dp-mcp-server
-```
-
-### Windows
-
-```powershell
-claude mcp remove 3dp-mcp-server -s user
-Remove-Item -Recurse -Force 3dp-mcp-server
 ```
 
 ## License
