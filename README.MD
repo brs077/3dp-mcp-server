@@ -15,9 +15,10 @@ The plugin will automatically set up a Python virtual environment and install de
 
 ### Plugin Skills
 
-Once installed, Claude gains four agent skills:
+Once installed, Claude gains five agent skills:
 
 - **design-model** — Design 3D-printable CAD models with build123d, parametric components, and modifications
+- **mechanical-parts** — Create threads, fasteners, bearings, sprockets, flanges, pipes, and CNC components
 - **print-prep** — Analyze printability, suggest orientation, estimate filament/cost, Bambu Studio tips
 - **publish-model** — Publish models to GitHub Releases, Thingiverse, MyMiniFactory, or Cults3D
 - **search-remix** — Search Thingiverse for community models, import and remix
@@ -46,7 +47,7 @@ powershell -ExecutionPolicy Bypass -File setup.ps1
 
 That's it. Start a new Claude Code session and ask it to create a model.
 
-## Tools (33)
+## Tools (40)
 
 ### Core
 | Tool | Description |
@@ -99,6 +100,17 @@ That's it. Start a new Claude Code session and ask it to create a model.
 | `create_hinge` | Two-part pin hinge assembly |
 | `create_dovetail` | Male or female dovetail joints |
 | `generate_label` | 3D-printable label with text and optional QR code |
+
+### Mechanical Parts (bd_warehouse)
+| Tool | Description |
+|------|-------------|
+| `create_thread` | ISO metric, ACME, trapezoidal, plastic bottle threads (male/female) |
+| `create_fastener` | Parametric screws, nuts, washers, heat-set inserts |
+| `create_bearing` | Ball and roller bearings (5 types) |
+| `create_sprocket` | Chain sprockets with parametric tooth profiles |
+| `create_flange` | ASME B16.5 pipe flanges (blind, slip-on, weld neck, etc.) |
+| `create_pipe` | Custom tube/pipe sections |
+| `create_openbuilds_part` | V-Slot rails, C-Beam, lead screws for CNC |
 
 ### Community
 | Tool | Description |

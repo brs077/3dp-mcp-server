@@ -29,6 +29,18 @@ Before writing raw build123d code, check if one of these purpose-built tools fit
 - `create_dovetail` — Male or female dovetail joints with clearance
 - `generate_label` — 3D-printable label with embossed text and optional QR code
 
+## Mechanical Parts (bd_warehouse)
+
+For standard mechanical components, use the **mechanical-parts** skill tools:
+
+- `create_thread` — ISO metric, ACME, trapezoidal, plastic bottle threads (male + female)
+- `create_fastener` — Screws, nuts, washers, heat-set inserts with real geometry
+- `create_bearing` — Ball and roller bearings (5 types)
+- `create_sprocket` — Chain sprockets with parametric tooth profiles
+- `create_flange` — ASME B16.5 pipe flanges (blind, slip-on, weld neck, etc.)
+- `create_pipe` — Custom tube/pipe sections
+- `create_openbuilds_part` — V-Slot rails, C-Beam, lead screws for CNC fixtures
+
 ## Post-Creation Modifications
 
 After creating a base model, refine it with:

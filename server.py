@@ -38,6 +38,26 @@ _ISO_THREAD_TABLE = {
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
+def _sanitize_name(name: str) -> str:
+    """Sanitize a model name to prevent path traversal. Raises ValueError if unsafe."""
+    # Strip path separators and parent-directory references
+    clean = os.path.basename(name.replace("\\", "/"))
+    if not clean or clean in (".", ".."):
+        raise ValueError(f"Invalid model name: '{name}'")
+    if "\x00" in clean:
+        raise ValueError(f"Invalid model name (null byte): '{name}'")
+    return clean
+
+
+def _safe_output_path(*parts: str) -> str:
+    """Join path parts under OUTPUT_DIR and verify the result stays inside it."""
+    candidate = os.path.realpath(os.path.join(OUTPUT_DIR, *parts))
+    real_output = os.path.realpath(OUTPUT_DIR)
+    if not candidate.startswith(real_output + os.sep) and candidate != real_output:
+        raise ValueError(f"Path escapes output directory: {candidate}")
+    return candidate
+
+
 def _shape_to_model_entry(shape, code: str = "") -> dict:
     """Convert a build123d shape into a model entry dict with bbox and volume."""
     bb = shape.bounding_box()
@@ -133,13 +153,15 @@ def create_model(name: str, code: str) -> str:
         JSON with success status, geometry info (bounding box, volume), and output paths.
     """
     try:
+        name = _sanitize_name(name)
+
         if "from build123d" not in code and "import build123d" not in code:
             code = "from build123d import *\n" + code
 
         result = _run_build123d_code(code)
         _models[name] = result
 
-        model_dir = os.path.join(OUTPUT_DIR, name)
+        model_dir = _safe_output_path(name)
         os.makedirs(model_dir, exist_ok=True)
 
         from build123d import export_stl, export_step
@@ -176,7 +198,7 @@ def export_model(name: str, format: str = "stl") -> str:
         return json.dumps({"success": False, "error": f"Model '{name}' not found. Available: {list(_models.keys())}"})
 
     model = _models[name]
-    model_dir = os.path.join(OUTPUT_DIR, name)
+    model_dir = _safe_output_path(name)
     os.makedirs(model_dir, exist_ok=True)
 
     fmt = format.lower().strip(".")
@@ -346,7 +368,7 @@ def transform_model(name: str, source_name: str, operations: str) -> str:
         return json.dumps({"success": False, "error": f"Model '{source_name}' not found. Available: {list(_models.keys())}"})
 
     try:
-        from build123d import Mirror, Plane as B3dPlane, Pos, Rot
+        from build123d import mirror, Plane as B3dPlane, Pos, Rot
 
         shape = _models[source_name]["shape"]
         ops = json.loads(operations)
@@ -368,7 +390,7 @@ def transform_model(name: str, source_name: str, operations: str) -> str:
                 mirror_plane = plane_map.get(op["mirror"].upper())
                 if mirror_plane is None:
                     return json.dumps({"success": False, "error": f"Unknown mirror plane: {op['mirror']}. Use XY, XZ, or YZ."})
-                shape = Mirror(about=mirror_plane) * shape
+                shape = mirror(shape, about=mirror_plane)
             if "translate" in op:
                 tx, ty, tz = op["translate"]
                 shape = Pos(tx, ty, tz) * shape
@@ -397,17 +419,24 @@ def import_model(name: str, file_path: str) -> str:
         file_path: Absolute path to the STL or STEP file
     """
     try:
-        ext = os.path.splitext(file_path)[1].lower()
+        name = _sanitize_name(name)
+
+        # Resolve path and validate it exists and has valid extension
+        resolved = os.path.realpath(file_path)
+        if not os.path.isfile(resolved):
+            return json.dumps({"success": False, "error": f"File not found: {file_path}"})
+
+        ext = os.path.splitext(resolved)[1].lower()
         if ext == ".stl":
             from build123d import import_stl
-            shape = import_stl(file_path)
+            shape = import_stl(resolved)
         elif ext in (".step", ".stp"):
             from build123d import import_step
-            shape = import_step(file_path)
+            shape = import_step(resolved)
         else:
             return json.dumps({"success": False, "error": f"Unsupported file type: {ext}. Use .stl, .step, or .stp."})
 
-        entry = _shape_to_model_entry(shape, code=f"imported from {file_path}")
+        entry = _shape_to_model_entry(shape, code=f"imported from {resolved}")
         _models[name] = entry
 
         return json.dumps({
@@ -436,6 +465,11 @@ def estimate_print(name: str, infill_percent: float = 15.0, layer_height: float 
         return json.dumps({"success": False, "error": f"Model '{name}' not found. Available: {list(_models.keys())}"})
 
     try:
+        if infill_percent < 0 or infill_percent > 100:
+            return json.dumps({"success": False, "error": f"infill_percent must be 0-100, got {infill_percent}"})
+        if layer_height <= 0:
+            return json.dumps({"success": False, "error": f"layer_height must be > 0, got {layer_height}"})
+
         shape = _models[name]["shape"]
         mat = material.upper()
         if mat not in _MATERIAL_PROPERTIES:
@@ -556,7 +590,7 @@ def shell_model(name: str, source_name: str, thickness: float = 2.0, open_faces:
         faces_to_open = json.loads(open_faces) if isinstance(open_faces, str) else open_faces
 
         openings = [_select_face(shape, fd) for fd in faces_to_open]
-        result = shape.shell(openings=openings, thickness=-thickness)
+        result = shape.offset_3d(openings=openings, thickness=-thickness)
 
         entry = _shape_to_model_entry(result, code=f"shell of {source_name}, thickness={thickness}")
         _models[name] = entry
@@ -681,15 +715,15 @@ def section_view(name: str, source_name: str, plane: str = "XY", offset: float =
         if offset != 0.0:
             section_plane = section_plane.offset(offset)
 
-        # Create cross-section
-        section = shape.section(section_plane)
+        # Create cross-section via plane intersection
+        section = shape.intersect(section_plane)
 
         # Store the section as a model entry
         entry = _shape_to_model_entry(section, code=f"section of {source_name} at {plane} offset={offset}")
         _models[name] = entry
 
         # Export SVG
-        model_dir = os.path.join(OUTPUT_DIR, name)
+        model_dir = _safe_output_path(name)
         os.makedirs(model_dir, exist_ok=True)
         svg_path = os.path.join(model_dir, f"{name}.svg")
 
@@ -725,38 +759,54 @@ def export_drawing(name: str, views: str = '["front", "top", "right"]', page_siz
         return json.dumps({"success": False, "error": f"Model '{name}' not found. Available: {list(_models.keys())}"})
 
     try:
-        from build123d import ExportSVG, Vector
+        from build123d import ExportSVG, Vector, Plane as B3dPlane
 
         shape = _models[name]["shape"]
         view_list = json.loads(views) if isinstance(views, str) else views
 
-        model_dir = os.path.join(OUTPUT_DIR, name)
+        model_dir = _safe_output_path(name)
         os.makedirs(model_dir, exist_ok=True)
         svg_path = os.path.join(model_dir, f"{name}_drawing.svg")
 
-        # Map view names to direction vectors (camera looks FROM this direction)
-        view_directions = {
-            "front": Vector(0, -1, 0),
-            "back": Vector(0, 1, 0),
-            "right": Vector(1, 0, 0),
-            "left": Vector(-1, 0, 0),
-            "top": Vector(0, 0, 1),
-            "bottom": Vector(0, 0, -1),
-            "iso": Vector(1, -1, 1),
+        # Map view names to section planes for 2D projections
+        view_planes = {
+            "front": B3dPlane.XZ,   # looking from front (Y axis)
+            "back": B3dPlane.XZ,
+            "right": B3dPlane.YZ,   # looking from right (X axis)
+            "left": B3dPlane.YZ,
+            "top": B3dPlane.XY,     # looking from top (Z axis)
+            "bottom": B3dPlane.XY,
+            "iso": B3dPlane.XY,     # fallback to top for iso
         }
+
+        valid_views = list(view_planes.keys())
+        for vn in view_list:
+            if vn.lower() not in view_planes:
+                return json.dumps({"success": False, "error": f"Unknown view: {vn}. Supported: {valid_views}"})
 
         exporter = ExportSVG(scale=1.0)
 
-        for i, view_name in enumerate(view_list):
+        for view_name in view_list:
             vn = view_name.lower()
-            direction = view_directions.get(vn)
-            if direction is None:
-                return json.dumps({"success": False, "error": f"Unknown view: {view_name}. Supported: {list(view_directions.keys())}"})
-
             layer_name = f"view_{vn}"
             exporter.add_layer(layer_name)
-            exporter.add_shape(shape, layer=layer_name, line_type=ExportSVG.LineType.VISIBLE,
-                               view_port_origin=direction)
+            # Project shape onto the view plane via intersection at midpoint
+            bb = shape.bounding_box()
+            mid_offset = {
+                "front": (bb.max.Y + bb.min.Y) / 2,
+                "back": (bb.max.Y + bb.min.Y) / 2,
+                "right": (bb.max.X + bb.min.X) / 2,
+                "left": (bb.max.X + bb.min.X) / 2,
+                "top": (bb.max.Z + bb.min.Z) / 2,
+                "bottom": (bb.max.Z + bb.min.Z) / 2,
+                "iso": (bb.max.Z + bb.min.Z) / 2,
+            }
+            section_plane = view_planes[vn].offset(mid_offset[vn])
+            try:
+                section = shape.intersect(section_plane)
+                exporter.add_shape(section, layer=layer_name)
+            except Exception:
+                pass  # Skip views that fail to section
 
         exporter.write(svg_path)
 
@@ -987,7 +1037,11 @@ def convert_format(input_path: str, output_path: str) -> str:
         else:
             return json.dumps({"success": False, "error": f"Unsupported input format: {in_ext}"})
 
-        # Export
+        # Export — restrict output to OUTPUT_DIR
+        out_real = os.path.realpath(output_path)
+        output_real = os.path.realpath(OUTPUT_DIR)
+        if not out_real.startswith(output_real + os.sep) and not out_real.startswith(output_real):
+            return json.dumps({"success": False, "error": f"Output path must be within the outputs directory."})
         os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
         if out_ext == ".stl":
             from build123d import export_stl
@@ -1266,7 +1320,7 @@ def split_model_by_color(name: str, source_name: str, assignments: str) -> str:
         shape = _models[source_name]["shape"]
         assigns = json.loads(assignments) if isinstance(assignments, str) else assignments
 
-        model_dir = os.path.join(OUTPUT_DIR, name)
+        model_dir = _safe_output_path(name)
         os.makedirs(model_dir, exist_ok=True)
         bb = shape.bounding_box()
         size = max(bb.max.X - bb.min.X, bb.max.Y - bb.min.Y, bb.max.Z - bb.min.Z) * 2 + 100
@@ -1665,7 +1719,7 @@ def generate_label(name: str, text: str, size: str = "[60, 20, 2]", font_size: f
         _models[name] = entry
 
         # Export
-        model_dir = os.path.join(OUTPUT_DIR, name)
+        model_dir = _safe_output_path(name)
         os.makedirs(model_dir, exist_ok=True)
         from build123d import export_stl
         stl_path = os.path.join(model_dir, f"{name}.stl")
@@ -1752,7 +1806,8 @@ def _ensure_exported(name: str, fmt: str = "stl") -> str:
     """Ensure a model is exported and return the file path."""
     if name not in _models:
         raise ValueError(f"Model '{name}' not found. Use list_models() to see available models.")
-    path = os.path.join(OUTPUT_DIR, f"{name}.{fmt}")
+    safe_name = _sanitize_name(name)
+    path = _safe_output_path(f"{safe_name}.{fmt}")
     if not os.path.exists(path):
         from build123d import export_stl, export_step
         shape = _models[name]["shape"]
@@ -2243,6 +2298,532 @@ def publish_cults3d(
             "stl_path": stl_path,
             "note": "Created as draft. Cults3D requires file upload through their web interface "
                     "or hosting files at a public URL. Upload the STL file manually at the creation URL.",
+        }, indent=2)
+
+    except Exception as e:
+        return json.dumps({"success": False, "error": str(e), "traceback": traceback.format_exc()}, indent=2)
+
+
+# ── bd_warehouse: Threads ────────────────────────────────────────────────────
+
+
+@mcp.tool()
+def create_thread(
+    name: str,
+    thread_type: str = "iso",
+    major_diameter: float = 10.0,
+    pitch: float = 1.5,
+    length: float = 20.0,
+    external: bool = True,
+    hand: str = "right",
+    end_finishes: str = '["fade", "square"]',
+    size: str = "",
+    manufacturing_compensation: float = 0.0,
+) -> str:
+    """Create a threaded part (bolt shaft, nut bore, bottle thread, lead screw, etc.).
+
+    Generates actual 3D thread geometry using bd_warehouse — not just drill holes.
+
+    Args:
+        name: Name for the model
+        thread_type: Thread profile — "iso" (metric 60°), "acme" (29°, imperial),
+            "metric_trapezoidal" (30°, metric lead screws), "plastic_bottle" (ASTM D2911)
+        major_diameter: Major diameter in mm (iso only, ignored for acme/metric_trap/bottle)
+        pitch: Thread pitch in mm (iso only)
+        length: Thread length in mm (not used for plastic_bottle)
+        external: True = male/bolt thread, False = female/nut thread
+        hand: "right" or "left" hand thread
+        end_finishes: JSON list of two finishes [start, end]. Options: "raw", "square", "fade", "chamfer"
+        size: Size string for acme ("3/8"), metric_trapezoidal ("10x2"), or plastic_bottle ("L38SP400")
+        manufacturing_compensation: FDM printing compensation in mm (plastic_bottle only, try 0.2)
+    """
+    try:
+        name = _sanitize_name(name)
+        finishes = json.loads(end_finishes) if isinstance(end_finishes, str) else end_finishes
+
+        tt = thread_type.lower().replace(" ", "_")
+
+        if tt == "iso":
+            from bd_warehouse.thread import IsoThread
+            result = IsoThread(
+                major_diameter=major_diameter, pitch=pitch, length=length,
+                external=external, hand=hand, end_finishes=tuple(finishes),
+                simple=False,
+            )
+        elif tt == "acme":
+            from bd_warehouse.thread import AcmeThread
+            if not size:
+                return json.dumps({"success": False, "error": "acme thread requires 'size' (e.g. '3/8', '1/2', '1')"})
+            result = AcmeThread(size=size, length=length, external=external, hand=hand, end_finishes=tuple(finishes))
+        elif tt in ("metric_trapezoidal", "metric_trap", "trapezoidal"):
+            from bd_warehouse.thread import MetricTrapezoidalThread
+            if not size:
+                return json.dumps({"success": False, "error": "metric_trapezoidal thread requires 'size' (e.g. '10x2', '20x4')"})
+            result = MetricTrapezoidalThread(size=size, length=length, external=external, hand=hand, end_finishes=tuple(finishes))
+        elif tt in ("plastic_bottle", "bottle"):
+            from bd_warehouse.thread import PlasticBottleThread
+            if not size:
+                return json.dumps({"success": False, "error": "plastic_bottle thread requires 'size' (e.g. 'L38SP400', 'M38SP400')"})
+            result = PlasticBottleThread(
+                size=size, external=external, hand=hand,
+                manufacturing_compensation=manufacturing_compensation,
+            )
+        else:
+            return json.dumps({"success": False, "error": f"Unknown thread_type: {thread_type}. Use: iso, acme, metric_trapezoidal, plastic_bottle"})
+
+        entry = _shape_to_model_entry(result, code=f"{tt} thread {'external' if external else 'internal'}")
+        _models[name] = entry
+
+        model_dir = _safe_output_path(name)
+        os.makedirs(model_dir, exist_ok=True)
+        from build123d import export_stl, export_step
+        stl_path = os.path.join(model_dir, f"{name}.stl")
+        step_path = os.path.join(model_dir, f"{name}.step")
+        export_stl(result, stl_path)
+        export_step(result, step_path)
+
+        return json.dumps({
+            "success": True,
+            "name": name,
+            "thread_type": tt,
+            "external": external,
+            "hand": hand,
+            "bbox": entry["bbox"],
+            "volume": entry["volume"],
+            "outputs": {"stl": stl_path, "step": step_path},
+        }, indent=2)
+
+    except Exception as e:
+        return json.dumps({"success": False, "error": str(e), "traceback": traceback.format_exc()}, indent=2)
+
+
+# ── bd_warehouse: Fasteners ──────────────────────────────────────────────────
+
+
+@mcp.tool()
+def create_fastener(
+    name: str,
+    fastener_class: str = "socket_head_cap_screw",
+    size: str = "M3-0.5",
+    length: float = 10.0,
+    fastener_type: str = "",
+    simple: bool = True,
+    hand: str = "right",
+) -> str:
+    """Create a parametric screw, nut, washer, or heat-set insert with real geometry.
+
+    Args:
+        name: Name for the model
+        fastener_class: One of:
+            Screws: "socket_head_cap_screw", "hex_head_screw", "button_head_screw",
+                "counter_sunk_screw", "pan_head_screw", "set_screw", "low_profile_screw"
+            Nuts: "hex_nut", "hex_nut_with_flange", "square_nut", "domed_cap_nut"
+            Washers: "plain_washer", "chamfered_washer"
+            Inserts: "heat_set_nut"
+        size: ISO size string (e.g. "M3-0.5", "M5-0.8", "M2-0.4-Standard" for heat-set)
+        length: Screw length in mm (screws only, ignored for nuts/washers)
+        fastener_type: Standard identifier. Common defaults:
+            Screws: "iso4762" (socket), "iso4014" (hex), "iso7380" (button)
+            Nuts: "iso4032" (hex), "iso4161" (flanged)
+            Washers: "iso7089" (plain), "iso7090" (chamfered)
+            Inserts: "McMaster-Carr", "Hilitchi"
+        simple: If true, omit thread detail for faster generation (default true)
+        hand: "right" or "left" hand thread
+    """
+    try:
+        name = _sanitize_name(name)
+
+        _FASTENER_MAP = {
+            # Screws
+            "socket_head_cap_screw": ("bd_warehouse.fastener", "SocketHeadCapScrew", "iso4762", True),
+            "hex_head_screw":       ("bd_warehouse.fastener", "HexHeadScrew",       "iso4014", True),
+            "button_head_screw":    ("bd_warehouse.fastener", "ButtonHeadScrew",     "iso7380", True),
+            "counter_sunk_screw":   ("bd_warehouse.fastener", "CounterSunkScrew",    "iso10642", True),
+            "pan_head_screw":       ("bd_warehouse.fastener", "PanHeadScrew",        "asme_b18.6.3", True),
+            "set_screw":            ("bd_warehouse.fastener", "SetScrew",            "iso4026", True),
+            "low_profile_screw":    ("bd_warehouse.fastener", "LowProfileScrew",     "iso14580", True),
+            # Nuts
+            "hex_nut":              ("bd_warehouse.fastener", "HexNut",              "iso4032", False),
+            "hex_nut_with_flange":  ("bd_warehouse.fastener", "HexNutWithFlange",    "iso4161", False),
+            "square_nut":           ("bd_warehouse.fastener", "SquareNut",           "din557",  False),
+            "domed_cap_nut":        ("bd_warehouse.fastener", "DomedCapNut",         "din1587", False),
+            # Washers
+            "plain_washer":         ("bd_warehouse.fastener", "PlainWasher",         "iso7089", None),
+            "chamfered_washer":     ("bd_warehouse.fastener", "ChamferedWasher",     "iso7090", None),
+            # Inserts
+            "heat_set_nut":         ("bd_warehouse.fastener", "HeatSetNut",          "McMaster-Carr", False),
+        }
+
+        fc = fastener_class.lower().replace(" ", "_")
+        if fc not in _FASTENER_MAP:
+            return json.dumps({"success": False, "error": f"Unknown fastener_class: {fastener_class}. Options: {list(_FASTENER_MAP.keys())}"})
+
+        mod_name, cls_name, default_type, needs_length = _FASTENER_MAP[fc]
+        import importlib
+        mod = importlib.import_module(mod_name)
+        cls = getattr(mod, cls_name)
+        ft = fastener_type or default_type
+
+        if needs_length is True:
+            # Screw
+            result = cls(size=size, length=length, fastener_type=ft, hand=hand, simple=simple)
+        elif needs_length is False:
+            # Nut / HeatSetNut
+            result = cls(size=size, fastener_type=ft, hand=hand, simple=simple)
+        else:
+            # Washer
+            result = cls(size=size, fastener_type=ft)
+
+        entry = _shape_to_model_entry(result, code=f"{fc} {size}")
+        _models[name] = entry
+
+        model_dir = _safe_output_path(name)
+        os.makedirs(model_dir, exist_ok=True)
+        from build123d import export_stl, export_step
+        stl_path = os.path.join(model_dir, f"{name}.stl")
+        step_path = os.path.join(model_dir, f"{name}.step")
+        export_stl(result, stl_path)
+        export_step(result, step_path)
+
+        return json.dumps({
+            "success": True,
+            "name": name,
+            "fastener_class": fc,
+            "size": size,
+            "fastener_type": ft,
+            "bbox": entry["bbox"],
+            "volume": entry["volume"],
+            "outputs": {"stl": stl_path, "step": step_path},
+        }, indent=2)
+
+    except Exception as e:
+        return json.dumps({"success": False, "error": str(e), "traceback": traceback.format_exc()}, indent=2)
+
+
+# ── bd_warehouse: Bearings ───────────────────────────────────────────────────
+
+
+@mcp.tool()
+def create_bearing(
+    name: str,
+    bearing_class: str = "deep_groove_ball",
+    size: str = "M8-22-7",
+    bearing_type: str = "SKT",
+) -> str:
+    """Create a parametric bearing model.
+
+    Args:
+        name: Name for the model
+        bearing_class: Bearing type — "deep_groove_ball", "capped_deep_groove_ball",
+            "angular_contact_ball", "cylindrical_roller", "tapered_roller"
+        size: Bearing size string (e.g. "M8-22-7" = 8mm bore, 22mm OD, 7mm width)
+        bearing_type: Manufacturer spec (default "SKT")
+    """
+    try:
+        name = _sanitize_name(name)
+
+        _BEARING_MAP = {
+            "deep_groove_ball":        "SingleRowDeepGrooveBallBearing",
+            "capped_deep_groove_ball": "SingleRowCappedDeepGrooveBallBearing",
+            "angular_contact_ball":    "SingleRowAngularContactBallBearing",
+            "cylindrical_roller":      "SingleRowCylindricalRollerBearing",
+            "tapered_roller":          "SingleRowTaperedRollerBearing",
+        }
+
+        bc = bearing_class.lower().replace(" ", "_")
+        if bc not in _BEARING_MAP:
+            return json.dumps({"success": False, "error": f"Unknown bearing_class: {bearing_class}. Options: {list(_BEARING_MAP.keys())}"})
+
+        import importlib
+        mod = importlib.import_module("bd_warehouse.bearing")
+        cls = getattr(mod, _BEARING_MAP[bc])
+        result = cls(size=size, bearing_type=bearing_type)
+
+        entry = _shape_to_model_entry(result, code=f"{bc} bearing {size}")
+        _models[name] = entry
+
+        model_dir = _safe_output_path(name)
+        os.makedirs(model_dir, exist_ok=True)
+        from build123d import export_stl, export_step
+        stl_path = os.path.join(model_dir, f"{name}.stl")
+        step_path = os.path.join(model_dir, f"{name}.step")
+        export_stl(result, stl_path)
+        export_step(result, step_path)
+
+        return json.dumps({
+            "success": True,
+            "name": name,
+            "bearing_class": bc,
+            "size": size,
+            "bbox": entry["bbox"],
+            "volume": entry["volume"],
+            "outputs": {"stl": stl_path, "step": step_path},
+        }, indent=2)
+
+    except Exception as e:
+        return json.dumps({"success": False, "error": str(e), "traceback": traceback.format_exc()}, indent=2)
+
+
+# ── bd_warehouse: Sprockets ──────────────────────────────────────────────────
+
+
+@mcp.tool()
+def create_sprocket(
+    name: str,
+    num_teeth: int = 18,
+    chain_pitch: float = 12.7,
+    roller_diameter: float = 7.9375,
+    thickness: float = 2.1336,
+    bore_diameter: float = 0.0,
+    num_mount_bolts: int = 0,
+    mount_bolt_diameter: float = 0.0,
+    bolt_circle_diameter: float = 0.0,
+    clearance: float = 0.0,
+) -> str:
+    """Create a parametric chain sprocket.
+
+    Default values are for ANSI #40 (1/2" pitch, 0.3125" roller) chain.
+
+    Args:
+        name: Name for the model
+        num_teeth: Number of teeth (default 18)
+        chain_pitch: Chain pitch in mm (default 12.7 = 1/2 inch ANSI #40)
+        roller_diameter: Chain roller diameter in mm (default 7.9375 = 5/16 inch)
+        thickness: Sprocket plate thickness in mm (default 2.1336)
+        bore_diameter: Center bore diameter in mm, 0 for solid (default 0)
+        num_mount_bolts: Number of mounting bolt holes (default 0)
+        mount_bolt_diameter: Mounting bolt hole diameter in mm (default 0)
+        bolt_circle_diameter: Bolt circle diameter in mm (default 0)
+        clearance: Additional clearance between chain and sprocket in mm (default 0)
+    """
+    try:
+        name = _sanitize_name(name)
+        from bd_warehouse.sprocket import Sprocket
+
+        result = Sprocket(
+            num_teeth=num_teeth,
+            chain_pitch=chain_pitch,
+            roller_diameter=roller_diameter,
+            thickness=thickness,
+            bore_diameter=bore_diameter,
+            num_mount_bolts=num_mount_bolts,
+            mount_bolt_diameter=mount_bolt_diameter,
+            bolt_circle_diameter=bolt_circle_diameter,
+            clearance=clearance,
+        )
+
+        entry = _shape_to_model_entry(result, code=f"sprocket {num_teeth}T pitch={chain_pitch}")
+        _models[name] = entry
+
+        model_dir = _safe_output_path(name)
+        os.makedirs(model_dir, exist_ok=True)
+        from build123d import export_stl, export_step
+        stl_path = os.path.join(model_dir, f"{name}.stl")
+        step_path = os.path.join(model_dir, f"{name}.step")
+        export_stl(result, stl_path)
+        export_step(result, step_path)
+
+        pitch_diameter = chain_pitch / math.sin(math.pi / num_teeth)
+
+        return json.dumps({
+            "success": True,
+            "name": name,
+            "num_teeth": num_teeth,
+            "chain_pitch_mm": chain_pitch,
+            "pitch_diameter_mm": round(pitch_diameter, 2),
+            "bore_diameter_mm": bore_diameter,
+            "bbox": entry["bbox"],
+            "volume": entry["volume"],
+            "outputs": {"stl": stl_path, "step": step_path},
+        }, indent=2)
+
+    except Exception as e:
+        return json.dumps({"success": False, "error": str(e), "traceback": traceback.format_exc()}, indent=2)
+
+
+# ── bd_warehouse: Flanges ────────────────────────────────────────────────────
+
+
+@mcp.tool()
+def create_flange(
+    name: str,
+    flange_class: str = "blind",
+    nps: str = "2",
+    flange_class_rating: int = 150,
+    face_type: str = "Raised",
+) -> str:
+    """Create a parametric pipe flange (ASME B16.5).
+
+    Args:
+        name: Name for the model
+        flange_class: "blind", "slip_on", "weld_neck", "lapped", "socket_weld"
+        nps: Nominal pipe size — "1/2", "3/4", "1", "1 1/4", "1 1/2", "2", "2 1/2",
+            "3", "4", "5", "6", "8", "10", "12", "14", "16", "18", "20", "22", "24"
+        flange_class_rating: Pressure class — 150, 300, 400, 600, 900, 1500, or 2500
+        face_type: "Flat", "Raised", "Ring", "Tongue", "Groove", "Male", "Female"
+    """
+    try:
+        name = _sanitize_name(name)
+
+        _FLANGE_MAP = {
+            "blind":       "BlindFlange",
+            "slip_on":     "SlipOnFlange",
+            "weld_neck":   "WeldNeckFlange",
+            "lapped":      "LappedFlange",
+            "socket_weld": "SocketWeldFlange",
+        }
+
+        fc = flange_class.lower().replace(" ", "_")
+        if fc not in _FLANGE_MAP:
+            return json.dumps({"success": False, "error": f"Unknown flange_class: {flange_class}. Options: {list(_FLANGE_MAP.keys())}"})
+
+        import importlib
+        mod = importlib.import_module("bd_warehouse.flange")
+        cls = getattr(mod, _FLANGE_MAP[fc])
+        result = cls(nps=nps, flange_class=flange_class_rating, face_type=face_type)
+
+        entry = _shape_to_model_entry(result, code=f"{fc} flange NPS {nps} class {flange_class_rating}")
+        _models[name] = entry
+
+        model_dir = _safe_output_path(name)
+        os.makedirs(model_dir, exist_ok=True)
+        from build123d import export_stl, export_step
+        stl_path = os.path.join(model_dir, f"{name}.stl")
+        step_path = os.path.join(model_dir, f"{name}.step")
+        export_stl(result, stl_path)
+        export_step(result, step_path)
+
+        return json.dumps({
+            "success": True,
+            "name": name,
+            "flange_class": fc,
+            "nps": nps,
+            "class_rating": flange_class_rating,
+            "face_type": face_type,
+            "bbox": entry["bbox"],
+            "volume": entry["volume"],
+            "outputs": {"stl": stl_path, "step": step_path},
+        }, indent=2)
+
+    except Exception as e:
+        return json.dumps({"success": False, "error": str(e), "traceback": traceback.format_exc()}, indent=2)
+
+
+# ── bd_warehouse: Pipes ──────────────────────────────────────────────────────
+
+
+@mcp.tool()
+def create_pipe(
+    name: str,
+    outer_diameter: float = 25.0,
+    wall_thickness: float = 2.0,
+    length: float = 100.0,
+) -> str:
+    """Create a pipe/tube section.
+
+    Uses simple cylinder math for maximum flexibility — specify any OD, wall, and length.
+
+    Args:
+        name: Name for the model
+        outer_diameter: Outer diameter in mm (default 25)
+        wall_thickness: Wall thickness in mm (default 2)
+        length: Pipe length in mm (default 100)
+    """
+    try:
+        name = _sanitize_name(name)
+        from build123d import Cylinder, export_stl, export_step
+
+        inner_d = outer_diameter - 2 * wall_thickness
+        if inner_d <= 0:
+            return json.dumps({"success": False, "error": f"Wall thickness {wall_thickness}mm is too large for OD {outer_diameter}mm"})
+
+        outer = Cylinder(outer_diameter / 2, length)
+        inner = Cylinder(inner_d / 2, length)
+        result = outer - inner
+
+        entry = _shape_to_model_entry(result, code=f"pipe OD={outer_diameter} wall={wall_thickness} L={length}")
+        _models[name] = entry
+
+        model_dir = _safe_output_path(name)
+        os.makedirs(model_dir, exist_ok=True)
+        stl_path = os.path.join(model_dir, f"{name}.stl")
+        step_path = os.path.join(model_dir, f"{name}.step")
+        export_stl(result, stl_path)
+        export_step(result, step_path)
+
+        return json.dumps({
+            "success": True,
+            "name": name,
+            "outer_diameter_mm": outer_diameter,
+            "inner_diameter_mm": round(inner_d, 2),
+            "wall_thickness_mm": wall_thickness,
+            "length_mm": length,
+            "bbox": entry["bbox"],
+            "volume": entry["volume"],
+            "outputs": {"stl": stl_path, "step": step_path},
+        }, indent=2)
+
+    except Exception as e:
+        return json.dumps({"success": False, "error": str(e), "traceback": traceback.format_exc()}, indent=2)
+
+
+# ── bd_warehouse: OpenBuilds ─────────────────────────────────────────────────
+
+
+@mcp.tool()
+def create_openbuilds_part(
+    name: str,
+    part_type: str = "v_slot_rail",
+    length: float = 200.0,
+    rail_size: str = "20x20",
+) -> str:
+    """Create OpenBuilds CNC/linear motion parts for 3D printing jigs, mounts, and fixtures.
+
+    Args:
+        name: Name for the model
+        part_type: Part to create:
+            "v_slot_rail" — V-Slot aluminum extrusion profile
+            "c_beam_rail" — C-Beam linear rail profile
+            "lead_screw" — Metric 8mm lead screw with trapezoidal thread
+        length: Part length in mm (default 200)
+        rail_size: V-Slot size — "20x20", "20x40", "20x60", "20x80", "40x40" (v_slot_rail only)
+    """
+    try:
+        name = _sanitize_name(name)
+
+        pt = part_type.lower().replace(" ", "_")
+
+        if pt == "v_slot_rail":
+            from bd_warehouse.open_builds import VSlotLinearRail
+            result = VSlotLinearRail(rail_size=rail_size, length=length)
+        elif pt in ("c_beam_rail", "c_beam"):
+            from bd_warehouse.open_builds import CBeamLinearRail
+            result = CBeamLinearRail(length=length)
+        elif pt in ("lead_screw", "metric_lead_screw"):
+            from bd_warehouse.open_builds import MetricLeadScrew
+            result = MetricLeadScrew(length=length)
+        else:
+            return json.dumps({"success": False, "error": f"Unknown part_type: {part_type}. Options: v_slot_rail, c_beam_rail, lead_screw"})
+
+        entry = _shape_to_model_entry(result, code=f"openbuilds {pt} L={length}")
+        _models[name] = entry
+
+        model_dir = _safe_output_path(name)
+        os.makedirs(model_dir, exist_ok=True)
+        from build123d import export_stl, export_step
+        stl_path = os.path.join(model_dir, f"{name}.stl")
+        step_path = os.path.join(model_dir, f"{name}.step")
+        export_stl(result, stl_path)
+        export_step(result, step_path)
+
+        return json.dumps({
+            "success": True,
+            "name": name,
+            "part_type": pt,
+            "length_mm": length,
+            "bbox": entry["bbox"],
+            "volume": entry["volume"],
+            "outputs": {"stl": stl_path, "step": step_path},
         }, indent=2)
 
     except Exception as e:

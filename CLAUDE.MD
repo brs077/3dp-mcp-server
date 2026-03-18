@@ -44,6 +44,15 @@ MCP server for 3D-printable CAD modeling with build123d, targeting STL export fo
 - `create_dovetail(name, dovetail_type, width, height, depth, angle, clearance)` — Male or female dovetail joints.
 - `generate_label(name, text, size, font_size, qr_data)` — 3D-printable label with text and optional QR code.
 
+### Mechanical Parts (bd_warehouse)
+- `create_thread(name, thread_type, major_diameter, pitch, length, external, hand, end_finishes, size, manufacturing_compensation)` — ISO metric, ACME, metric trapezoidal, or plastic bottle threads. Male or female.
+- `create_fastener(name, fastener_class, size, length, fastener_type, simple, hand)` — Screws, nuts, washers, heat-set inserts with real geometry.
+- `create_bearing(name, bearing_class, size, bearing_type)` — Ball and roller bearings (deep groove, angular contact, cylindrical, tapered).
+- `create_sprocket(name, num_teeth, chain_pitch, roller_diameter, thickness, bore_diameter)` — Chain sprockets for ANSI roller chain.
+- `create_flange(name, flange_class, nps, flange_class_rating, face_type)` — ASME B16.5 pipe flanges (blind, slip-on, weld neck, etc.).
+- `create_pipe(name, outer_diameter, wall_thickness, length)` — Custom tube/pipe sections.
+- `create_openbuilds_part(name, part_type, length, rail_size)` — V-Slot rails, C-Beam, lead screws.
+
 ### Community
 - `search_models(query, source, max_results)` — Search Thingiverse for 3D models (requires THINGIVERSE_API_KEY env var).
 
