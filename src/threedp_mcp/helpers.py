@@ -4,6 +4,25 @@ import math
 import os
 
 
+def sanitize_name(name: str) -> str:
+    """Sanitize a model name to prevent path traversal. Raises ValueError if unsafe."""
+    clean = os.path.basename(name.replace("\\", "/"))
+    if not clean or clean in (".", ".."):
+        raise ValueError(f"Invalid model name: '{name}'")
+    if "\x00" in clean:
+        raise ValueError(f"Invalid model name (null byte): '{name}'")
+    return clean
+
+
+def safe_output_path(output_dir: str, *parts: str) -> str:
+    """Join path parts under output_dir and verify the result stays inside it."""
+    candidate = os.path.realpath(os.path.join(output_dir, *parts))
+    real_output = os.path.realpath(output_dir)
+    if not candidate.startswith(real_output + os.sep) and candidate != real_output:
+        raise ValueError(f"Path escapes output directory: {candidate}")
+    return candidate
+
+
 def shape_to_model_entry(shape, code: str = "") -> dict:
     """Convert a build123d shape into a model entry dict with bbox and volume."""
     bb = shape.bounding_box()

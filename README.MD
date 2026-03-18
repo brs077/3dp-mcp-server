@@ -17,11 +17,14 @@ The plugin will automatically set up a Python virtual environment and install de
 
 ### Plugin Skills
 
-Once installed, Claude gains three agent skills:
+Once installed, Claude gains six agent skills:
 
 - **design-model** — Design 3D-printable CAD models with build123d
-- **print-prep** — Analyze printability, suggest orientation, estimate filament/cost
-- **publish-model** — Publish models to GitHub Releases, Thingiverse, MyMiniFactory, or Cults3D
+- **modify-model** — Shell, split, add text, combine, transform, and generate 2D drawings
+- **parametric-components** — Create enclosures, gears, snap-fits, hinges, dovetails, and labels
+- **mechanical-parts** — Create threads, fasteners, bearings, sprockets, flanges, pipes, OpenBuilds parts
+- **print-prep** — Analyze printability, suggest orientation, estimate filament/cost, pack build plates
+- **publish-model** — Publish to GitHub Releases, Thingiverse, MyMiniFactory, Cults3D, or search for models
 
 ## Manual Setup (Alternative)
 
@@ -45,7 +48,7 @@ The plugin auto-registers the MCP server via `.mcp.json`.
 claude mcp add 3dp-mcp-server -- uv run --directory /path/to/3dp-mcp-server threedp-mcp
 ```
 
-## Tools (33)
+## Tools (40)
 
 ### Core
 | Tool | Description |
@@ -99,6 +102,17 @@ claude mcp add 3dp-mcp-server -- uv run --directory /path/to/3dp-mcp-server thre
 | `create_dovetail` | Male or female dovetail joints |
 | `generate_label` | 3D-printable label with text and optional QR code |
 
+### Mechanical Parts (bd_warehouse)
+| Tool | Description |
+|------|-------------|
+| `create_thread` | ISO metric, ACME, metric trapezoidal, or plastic bottle threads |
+| `create_fastener` | Screws, nuts, washers, heat-set inserts (14 types) |
+| `create_bearing` | Ball bearings, roller bearings (5 types) |
+| `create_sprocket` | Chain sprockets for ANSI chains |
+| `create_flange` | ASME B16.5 pipe flanges (5 types) |
+| `create_pipe` | Pipe/tube sections |
+| `create_openbuilds_part` | V-Slot rails, C-Beam rails, lead screws |
+
 ### Community
 | Tool | Description |
 |------|-------------|
@@ -146,6 +160,7 @@ src/threedp_mcp/
     ├── analysis.py     # estimate, overhangs, orientation, section, drawing, color_split
     ├── utility.py      # shrinkage, pack, convert
     ├── components.py   # enclosure, gear, snap_fit, hinge, dovetail, label
+    ├── mechanical.py   # threads, fasteners, bearings, sprockets, flanges, pipes, openbuilds
     ├── community.py    # search_models
     └── publishing.py   # github, thingiverse, myminifactory, cults3d
 ```

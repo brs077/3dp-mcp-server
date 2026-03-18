@@ -17,6 +17,7 @@ src/threedp_mcp/
     ├── analysis.py     # estimate_print, analyze_overhangs, suggest_orientation, section_view, export_drawing, split_model_by_color
     ├── utility.py      # shrinkage_compensation, pack_models, convert_format
     ├── components.py   # create_enclosure, create_gear, create_snap_fit, create_hinge, create_dovetail, generate_label
+    ├── mechanical.py   # create_thread, create_fastener, create_bearing, create_sprocket, create_flange, create_pipe, create_openbuilds_part
     ├── community.py    # search_models
     └── publishing.py   # publish_github_release, publish_thingiverse, publish_myminifactory, publish_cults3d
 ```
@@ -80,6 +81,15 @@ Each tool module exports `register(mcp, models, output_dir)`. Tools are closures
 - `create_hinge(name, hinge_type, params)` — Two-part pin hinge assembly.
 - `create_dovetail(name, dovetail_type, width, height, depth, angle, clearance)` — Male or female dovetail joints.
 - `generate_label(name, text, size, font_size, qr_data)` — 3D-printable label with text and optional QR code.
+
+### Mechanical Parts (bd_warehouse)
+- `create_thread(name, thread_type, major_diameter, pitch, length, external, hand, end_finishes, size, manufacturing_compensation)` — Create threaded parts: ISO metric, ACME, metric trapezoidal, or plastic bottle threads.
+- `create_fastener(name, fastener_class, size, length, fastener_type, simple, hand)` — Create screws, nuts, washers, or heat-set inserts (14 types).
+- `create_bearing(name, bearing_class, size, bearing_type)` — Create parametric bearings (5 types: deep groove ball, angular contact, roller).
+- `create_sprocket(name, num_teeth, chain_pitch, roller_diameter, thickness, bore_diameter, ...)` — Create chain sprockets for ANSI chains.
+- `create_flange(name, flange_class, nps, flange_class_rating, face_type)` — Create ASME B16.5 pipe flanges (5 types).
+- `create_pipe(name, outer_diameter, wall_thickness, length)` — Create pipe/tube sections.
+- `create_openbuilds_part(name, part_type, length, rail_size)` — Create OpenBuilds V-Slot rails, C-Beam rails, or lead screws.
 
 ### Community
 - `search_models(query, source, max_results)` — Search Thingiverse for 3D models (requires THINGIVERSE_API_KEY env var).
