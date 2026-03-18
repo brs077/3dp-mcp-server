@@ -1,7 +1,7 @@
 {
   "name": "3dp-mcp-server",
   "description": "3D printing CAD modeling with build123d — create, analyze, and export printable models (STL/STEP/3MF) directly from Claude Code",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": {
     "name": "brs077"
   },
