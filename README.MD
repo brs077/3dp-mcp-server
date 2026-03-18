@@ -17,12 +17,14 @@ The plugin will automatically set up a Python virtual environment and install de
 
 ### Plugin Skills
 
-Once installed, Claude gains three agent skills:
+Once installed, Claude gains six agent skills:
 
 - **design-model** — Design 3D-printable CAD models with build123d
-- **print-prep** — Analyze printability, suggest orientation, estimate filament/cost
-- **mechanical-parts** — Create mechanical parts: threads, fasteners, bearings, sprockets, flanges, pipes, OpenBuilds
-- **publish-model** — Publish models to GitHub Releases, Thingiverse, MyMiniFactory, or Cults3D
+- **modify-model** — Shell, split, add text, combine, transform, and generate 2D drawings
+- **parametric-components** — Create enclosures, gears, snap-fits, hinges, dovetails, and labels
+- **mechanical-parts** — Create threads, fasteners, bearings, sprockets, flanges, pipes, OpenBuilds parts
+- **print-prep** — Analyze printability, suggest orientation, estimate filament/cost, pack build plates
+- **publish-model** — Publish to GitHub Releases, Thingiverse, MyMiniFactory, Cults3D, or search for models
 
 ## Manual Setup (Alternative)
 
